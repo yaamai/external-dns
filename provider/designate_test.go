@@ -31,8 +31,8 @@ import (
 
 	"github.com/gophercloud/gophercloud/openstack/dns/v2/recordsets"
 	"github.com/gophercloud/gophercloud/openstack/dns/v2/zones"
-	"github.com/kubernetes-incubator/external-dns/endpoint"
-	"github.com/kubernetes-incubator/external-dns/plan"
+	"github.com/kubernetes-sigs/external-dns/endpoint"
+	"github.com/kubernetes-sigs/external-dns/plan"
 )
 
 var lastGeneratedDesignateID int32
@@ -114,7 +114,8 @@ func (c fakeDesignateClient) UpdateRecordSet(zoneID, recordSetID string, opts re
 	if opts.Description != nil {
 		rs.Description = *opts.Description
 	}
-	rs.TTL = opts.TTL
+	rs.TTL = *opts.TTL
+
 	rs.Records = opts.Records
 	return nil
 }

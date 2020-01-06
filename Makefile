@@ -31,7 +31,7 @@ cover-html: cover
 
 # Run all the linters
 lint:
-	golangci-lint run ./...
+	golangci-lint run --timeout=5m ./...
 
 
 # The verify target runs tasks similar to the CI tasks, but without code coverage
@@ -48,7 +48,7 @@ SOURCES        = $(shell find . -name '*.go')
 IMAGE         ?= registry.opensource.zalan.do/teapot/$(BINARY)
 VERSION       ?= $(shell git describe --tags --always --dirty)
 BUILD_FLAGS   ?= -v
-LDFLAGS       ?= -X github.com/kubernetes-incubator/external-dns/pkg/apis/externaldns.Version=$(VERSION) -w -s
+LDFLAGS       ?= -X github.com/kubernetes-sigs/external-dns/pkg/apis/externaldns.Version=$(VERSION) -w -s
 
 build: build/$(BINARY)
 

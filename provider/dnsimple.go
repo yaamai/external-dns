@@ -24,8 +24,8 @@ import (
 	"strings"
 
 	"github.com/dnsimple/dnsimple-go/dnsimple"
-	"github.com/kubernetes-incubator/external-dns/endpoint"
-	"github.com/kubernetes-incubator/external-dns/plan"
+	"github.com/kubernetes-sigs/external-dns/endpoint"
+	"github.com/kubernetes-sigs/external-dns/plan"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -235,7 +235,7 @@ func (p *dnsimpleProvider) submitChanges(changes []*dnsimpleChange) error {
 	for _, change := range changes {
 		zone := dnsimpleSuitableZone(change.ResourceRecordSet.Name, zones)
 		if zone == nil {
-			log.Debugf("Skipping record %s because no hosted zone matching record DNS Name was detected ", change.ResourceRecordSet.Name)
+			log.Debugf("Skipping record %s because no hosted zone matching record DNS Name was detected", change.ResourceRecordSet.Name)
 			continue
 		}
 
