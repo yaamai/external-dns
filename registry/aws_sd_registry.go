@@ -20,9 +20,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/kubernetes-sigs/external-dns/endpoint"
-	"github.com/kubernetes-sigs/external-dns/plan"
-	"github.com/kubernetes-sigs/external-dns/provider"
+	"sigs.k8s.io/external-dns/endpoint"
+	"sigs.k8s.io/external-dns/plan"
+	"sigs.k8s.io/external-dns/provider"
 )
 
 // AWSSDRegistry implements registry interface with ownership information associated via the Description field of SD Service
@@ -44,8 +44,8 @@ func NewAWSSDRegistry(provider provider.Provider, ownerID string) (*AWSSDRegistr
 
 // Records calls AWS SD API and expects AWS SD provider to provider Owner/Resource information as a serialized
 // value in the AWSSDDescriptionLabel value in the Labels map
-func (sdr *AWSSDRegistry) Records() ([]*endpoint.Endpoint, error) {
-	records, err := sdr.provider.Records()
+func (sdr *AWSSDRegistry) Records(ctx context.Context) ([]*endpoint.Endpoint, error) {
+	records, err := sdr.provider.Records(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -86,4 +86,8 @@ func (sdr *AWSSDRegistry) updateLabels(endpoints []*endpoint.Endpoint) {
 		ep.Labels[endpoint.OwnerLabelKey] = sdr.ownerID
 		ep.Labels[endpoint.AWSSDDescriptionLabel] = ep.Labels.Serialize(false)
 	}
+}
+
+func (sdr *AWSSDRegistry) PropertyValuesEqual(name string, previous string, current string) bool {
+	return sdr.provider.PropertyValuesEqual(name, previous, current)
 }

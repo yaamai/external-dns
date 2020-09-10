@@ -21,12 +21,13 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 
-	"github.com/kubernetes-sigs/external-dns/endpoint"
-	"github.com/kubernetes-sigs/external-dns/internal/testutils"
-	"github.com/kubernetes-sigs/external-dns/plan"
-	"github.com/kubernetes-sigs/external-dns/provider"
-	"github.com/kubernetes-sigs/external-dns/registry"
+	"sigs.k8s.io/external-dns/endpoint"
+	"sigs.k8s.io/external-dns/internal/testutils"
+	"sigs.k8s.io/external-dns/plan"
+	"sigs.k8s.io/external-dns/provider"
+	"sigs.k8s.io/external-dns/registry"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,12 +35,13 @@ import (
 
 // mockProvider returns mock endpoints and validates changes.
 type mockProvider struct {
+	provider.BaseProvider
 	RecordsStore  []*endpoint.Endpoint
 	ExpectChanges *plan.Changes
 }
 
 // Records returns the desired mock endpoints.
-func (p *mockProvider) Records() ([]*endpoint.Endpoint, error) {
+func (p *mockProvider) Records(ctx context.Context) ([]*endpoint.Endpoint, error) {
 	return p.RecordsStore, nil
 }
 
@@ -146,8 +148,47 @@ func TestRunOnce(t *testing.T) {
 		Policy:   &plan.SyncPolicy{},
 	}
 
-	assert.NoError(t, ctrl.RunOnce())
+	assert.NoError(t, ctrl.RunOnce(context.Background()))
 
 	// Validate that the mock source was called.
 	source.AssertExpectations(t)
+}
+
+func TestShouldRunOnce(t *testing.T) {
+	ctrl := &Controller{Interval: 10 * time.Minute}
+
+	now := time.Now()
+
+	// First run of Run loop should execute RunOnce
+	assert.True(t, ctrl.ShouldRunOnce(now))
+
+	// Second run should not
+	assert.False(t, ctrl.ShouldRunOnce(now))
+
+	now = now.Add(10 * time.Second)
+	// Changes happen in ingresses or services
+	ctrl.ScheduleRunOnce(now)
+	ctrl.ScheduleRunOnce(now)
+
+	// Because we batch changes, ShouldRunOnce returns False at first
+	assert.False(t, ctrl.ShouldRunOnce(now))
+	assert.False(t, ctrl.ShouldRunOnce(now.Add(100*time.Microsecond)))
+
+	// But after MinInterval we should run reconciliation
+	now = now.Add(MinInterval)
+	assert.True(t, ctrl.ShouldRunOnce(now))
+
+	// But just one time
+	assert.False(t, ctrl.ShouldRunOnce(now))
+
+	// We should wait maximum possible time after last reconciliation started
+	now = now.Add(10*time.Minute - time.Second)
+	assert.False(t, ctrl.ShouldRunOnce(now))
+
+	// After exactly Interval it's OK again to reconcile
+	now = now.Add(time.Second)
+	assert.True(t, ctrl.ShouldRunOnce(now))
+
+	// But not two times
+	assert.False(t, ctrl.ShouldRunOnce(now))
 }

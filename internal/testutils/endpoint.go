@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/kubernetes-sigs/external-dns/endpoint"
+	"sigs.k8s.io/external-dns/endpoint"
 )
 
 /** test utility functions for endpoints verifications */
@@ -39,7 +39,6 @@ func (b byAllFields) Less(i, j int) bool {
 			return b[i].RecordType <= b[j].RecordType
 		}
 		return b[i].Targets.String() <= b[j].Targets.String()
-
 	}
 	return false
 }
@@ -63,8 +62,8 @@ func SameEndpoints(a, b []*endpoint.Endpoint) bool {
 		return false
 	}
 
-	sa := a[:]
-	sb := b[:]
+	sa := a
+	sb := b
 	sort.Sort(byAllFields(sa))
 	sort.Sort(byAllFields(sb))
 
@@ -82,8 +81,8 @@ func SameEndpointLabels(a, b []*endpoint.Endpoint) bool {
 		return false
 	}
 
-	sa := a[:]
-	sb := b[:]
+	sa := a
+	sb := b
 	sort.Sort(byAllFields(sa))
 	sort.Sort(byAllFields(sb))
 

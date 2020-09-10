@@ -18,23 +18,23 @@ package source
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"sort"
 	"strings"
 	"text/template"
-
 	"time"
 
-	"github.com/kubernetes-sigs/external-dns/endpoint"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/api/extensions/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	extinformers "k8s.io/client-go/informers/extensions/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+
+	"sigs.k8s.io/external-dns/endpoint"
 )
 
 const (
@@ -90,8 +90,8 @@ func NewIngressSource(kubeClient kubernetes.Interface, namespace, annotationFilt
 	informerFactory.Start(wait.NeverStop)
 
 	// wait for the local cache to be populated.
-	err = wait.Poll(time.Second, 60*time.Second, func() (bool, error) {
-		return ingressInformer.Informer().HasSynced() == true, nil
+	err = poll(time.Second, 60*time.Second, func() (bool, error) {
+		return ingressInformer.Informer().HasSynced(), nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to sync cache: %v", err)
@@ -111,7 +111,7 @@ func NewIngressSource(kubeClient kubernetes.Interface, namespace, annotationFilt
 
 // Endpoints returns endpoint objects for each host-target combination that should be processed.
 // Retrieves all ingress resources on all namespaces
-func (sc *ingressSource) Endpoints() ([]*endpoint.Endpoint, error) {
+func (sc *ingressSource) Endpoints(ctx context.Context) ([]*endpoint.Endpoint, error) {
 	ingresses, err := sc.ingressInformer.Lister().Ingresses(sc.namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -201,11 +201,7 @@ func (sc *ingressSource) endpointsFromTemplate(ing *v1beta1.Ingress) ([]*endpoin
 
 // filterByAnnotations filters a list of ingresses by a given annotation selector.
 func (sc *ingressSource) filterByAnnotations(ingresses []*v1beta1.Ingress) ([]*v1beta1.Ingress, error) {
-	labelSelector, err := metav1.ParseToLabelSelector(sc.annotationFilter)
-	if err != nil {
-		return nil, err
-	}
-	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
+	selector, err := getLabelSelector(sc.annotationFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -218,11 +214,8 @@ func (sc *ingressSource) filterByAnnotations(ingresses []*v1beta1.Ingress) ([]*v
 	filteredList := []*v1beta1.Ingress{}
 
 	for _, ingress := range ingresses {
-		// convert the ingress' annotations to an equivalent label selector
-		annotations := labels.Set(ingress.Annotations)
-
 		// include ingress if its annotations match the selector
-		if selector.Matches(annotations) {
+		if matchLabelSelector(selector, ingress.Annotations) {
 			filteredList = append(filteredList, ingress)
 		}
 	}
@@ -302,4 +295,24 @@ func targetsFromIngressStatus(status v1beta1.IngressStatus) endpoint.Targets {
 	}
 
 	return targets
+}
+
+func (sc *ingressSource) AddEventHandler(ctx context.Context, handler func()) {
+	log.Debug("Adding event handler for ingress")
+
+	// Right now there is no way to remove event handler from informer, see:
+	// https://github.com/kubernetes/kubernetes/issues/79610
+	sc.ingressInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				handler()
+			},
+			UpdateFunc: func(old interface{}, new interface{}) {
+				handler()
+			},
+			DeleteFunc: func(obj interface{}) {
+				handler()
+			},
+		},
+	)
 }

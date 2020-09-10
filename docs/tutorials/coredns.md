@@ -24,13 +24,13 @@ helm install stable/etcd-operator --name my-etcd-op
 ```
 etcd cluster is installed with example yaml from etcd operator website.
 ```
-kubectl  apply -f https://raw.githubusercontent.com/coreos/etcd-operator/master/example/example-etcd-cluster.yaml
+kubectl  apply -f https://raw.githubusercontent.com/coreos/etcd-operator/HEAD/example/example-etcd-cluster.yaml
 ```
 
 ### Installing CoreDNS
 In order to make CoreDNS work with etcd backend, values.yaml of the chart should be changed with corresponding configurations.
 ```
-wget https://raw.githubusercontent.com/helm/charts/master/stable/coredns/values.yaml
+wget https://raw.githubusercontent.com/helm/charts/HEAD/stable/coredns/values.yaml
 ```
 
 You need to edit/patch the file with below diff
@@ -108,7 +108,7 @@ spec:
     spec:
       containers:
       - name: external-dns
-        image: registry.opensource.zalan.do/teapot/external-dns:latest
+        image: k8s.gcr.io/external-dns/external-dns:v0.7.3
         args:
         - --source=ingress
         - --provider=coredns
@@ -128,12 +128,9 @@ metadata:
   name: external-dns
 rules:
 - apiGroups: [""]
-  resources: ["services"]
+  resources: ["services","endpoints","pods"]
   verbs: ["get","watch","list"]
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get","watch","list"]
-- apiGroups: ["extensions"]
+- apiGroups: ["extensions","networking.k8s.io"]
   resources: ["ingresses"]
   verbs: ["get","watch","list"]
 - apiGroups: [""]
@@ -178,7 +175,7 @@ spec:
       serviceAccountName: external-dns
       containers:
       - name: external-dns
-        image: registry.opensource.zalan.do/teapot/external-dns:latest
+        image: k8s.gcr.io/external-dns/external-dns:v0.7.3
         args:
         - --source=ingress
         - --provider=coredns
@@ -196,8 +193,8 @@ minikube addons enable ingress
 
 ## Testing ingress example
 ```
-$ cat ingress.yaml      
-apiVersion: extensions/v1beta1
+$ cat ingress.yaml
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: nginx

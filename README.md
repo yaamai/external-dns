@@ -3,8 +3,8 @@
 </p>
 
 # ExternalDNS
-[![Build Status](https://travis-ci.org/kubernetes-sigs/external-dns.svg?branch=master)](https://travis-ci.org/kubernetes-sigs/external-dns)
-[![Coverage Status](https://coveralls.io/repos/github/kubernetes-sigs/external-dns/badge.svg?branch=master)](https://coveralls.io/github/kubernetes-sigs/external-dns?branch=master)
+[![Build Status](https://github.com/kubernetes-sigs/external-dns/workflows/Go/badge.svg)](https://github.com/kubernetes-sigs/external-dns/actions)
+[![Coverage Status](https://coveralls.io/repos/github/kubernetes-sigs/external-dns/badge.svg)](https://coveralls.io/github/kubernetes-sigs/external-dns)
 [![GitHub release](https://img.shields.io/github/release/kubernetes-sigs/external-dns.svg)](https://github.com/kubernetes-sigs/external-dns/releases)
 [![go-doc](https://godoc.org/github.com/kubernetes-sigs/external-dns?status.svg)](https://godoc.org/github.com/kubernetes-sigs/external-dns)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kubernetes-sigs/external-dns)](https://goreportcard.com/report/github.com/kubernetes-sigs/external-dns)
@@ -19,18 +19,19 @@ In a broader sense, ExternalDNS allows you to control DNS records dynamically vi
 
 The [FAQ](docs/faq.md) contains additional information and addresses several questions about key concepts of ExternalDNS.
 
-To see ExternalDNS in action, have a look at this [video](https://www.youtube.com/watch?v=9HQ2XgL9YVI) or read this [blogpost](https://medium.com/wearetheledger/deploying-test-environments-with-azure-devops-eks-and-externaldns-67abe647e4e).
+To see ExternalDNS in action, have a look at this [video](https://www.youtube.com/watch?v=9HQ2XgL9YVI) or read this [blogpost](https://codemine.be/posts/20190125-devops-eks-externaldns/).
 
-## The Latest Release: v0.5
+## The Latest Release: v0.7
 
-ExternalDNS' current release is `v0.5`. This version allows you to keep selected zones (via `--domain-filter`) synchronized with Ingresses and Services of `type=LoadBalancer` in various cloud providers:
+ExternalDNS' current release is `v0.7`. This version allows you to keep selected zones (via `--domain-filter`) synchronized with Ingresses and Services of `type=LoadBalancer` in various cloud providers:
 * [Google Cloud DNS](https://cloud.google.com/dns/docs/)
 * [AWS Route 53](https://aws.amazon.com/route53/)
-* [AWS Service Discovery](https://docs.aws.amazon.com/Route53/latest/APIReference/overview-service-discovery.html)
+* [AWS Cloud Map](https://docs.aws.amazon.com/cloud-map/)
 * [AzureDNS](https://azure.microsoft.com/en-us/services/dns)
 * [CloudFlare](https://www.cloudflare.com/dns)
 * [RcodeZero](https://www.rcodezero.at/)
 * [DigitalOcean](https://www.digitalocean.com/products/networking)
+* [Hetzner](https://hetzner.com/)
 * [DNSimple](https://dnsimple.com/)
 * [Infoblox](https://www.infoblox.com/products/dns/)
 * [Dyn](https://dyn.com/dns/)
@@ -44,6 +45,8 @@ ExternalDNS' current release is `v0.5`. This version allows you to keep selected
 * [NS1](https://ns1.com/)
 * [TransIP](https://www.transip.eu/domain-name/)
 * [VinylDNS](https://www.vinyldns.io)
+* [OVH](https://www.ovh.com)
+* [Scaleway](https://www.scaleway.com)
 
 From this release, ExternalDNS can become aware of the records it is managing (enabled via `--registry=txt`), therefore ExternalDNS can safely manage non-empty hosted zones. We strongly encourage you to use `v0.5` (or greater) with `--registry=txt` enabled and `--txt-owner-id` set to a unique value that doesn't change for the lifetime of your cluster. You might also want to run ExternalDNS in a dry run mode (`--dry-run` flag) to see the changes to be submitted to your DNS Provider API.
 
@@ -69,29 +72,35 @@ We define the following stability levels for providers:
 
 The following table clarifies the current status of the providers according to the aforementioned stability levels:
 
-| Provider | Status |
-| -------- | ------ |
-| Google Cloud DNS | Stable |
-| AWS Route 53 | Stable |
-| AWS Service Discovery | Beta |
-| AzureDNS | Beta |
-| CloudFlare | Beta
-| RcodeZero | Alpha |
-| DigitalOcean | Alpha |
-| DNSimple | Alpha |
-| Infoblox | Alpha |
-| Dyn | Alpha |
-| OpenStack Designate | Alpha |
-| PowerDNS | Alpha |
-| CoreDNS | Alpha |
-| Exoscale | Alpha |
-| Oracle Cloud Infrastructure DNS | Alpha |
-| Linode DNS | Alpha |
-| RFC2136 | Alpha |
-| NS1 | Alpha |
-| TransIP | Alpha |
-| VinylDNS | Alpha |
-| RancherDNS | Alpha |
+| Provider | Status | Maintainers |
+| -------- | ------ | ----------- |
+| Google Cloud DNS | Stable | |
+| AWS Route 53 | Stable | |
+| AWS Cloud Map | Beta | |
+| AzureDNS | Beta | |
+| CloudFlare | Beta | |
+| RcodeZero | Alpha | |
+| DigitalOcean | Alpha | |
+| Hetzner | Alpha | @21h |
+| DNSimple | Alpha | |
+| Infoblox | Alpha | @saileshgiri |
+| Dyn | Alpha | |
+| OpenStack Designate | Alpha | |
+| PowerDNS | Alpha | |
+| CoreDNS | Alpha | |
+| Exoscale | Alpha | |
+| Oracle Cloud Infrastructure DNS | Alpha | |
+| Linode DNS | Alpha | |
+| RFC2136 | Alpha | |
+| NS1 | Alpha | |
+| TransIP | Alpha | |
+| VinylDNS | Alpha | |
+| RancherDNS | Alpha | |
+| Akamai FastDNS | Alpha | |
+| OVH | Alpha | |
+| Scaleway DNS | Alpha | @Sh4d1 |
+| Vultr | Alpha | |
+| UltraDNS | Alpha | |
 
 ## Running ExternalDNS:
 
@@ -109,12 +118,14 @@ The following tutorials are provided:
 	* [ALB Ingress Controller](docs/tutorials/alb-ingress.md)
 	* [Route53](docs/tutorials/aws.md)
 		* [Same domain for public and private Route53 zones](docs/tutorials/public-private-route53.md)
-	* [Service Discovery](docs/tutorials/aws-sd.md)
+	* [Cloud Map](docs/tutorials/aws-sd.md)
+	* [Kube Ingress AWS Controller](docs/tutorials/kube-ingress-aws.md)
 * [Azure DNS](docs/tutorials/azure.md)
 * [Azure Private DNS](docs/tutorials/azure-private-dns.md)
 * [Cloudflare](docs/tutorials/cloudflare.md)
 * [CoreDNS](docs/tutorials/coredns.md)
 * [DigitalOcean](docs/tutorials/digitalocean.md)
+* [Hetzner](docs/tutorials/hetzner.md)
 * [DNSimple](docs/tutorials/dnsimple.md)
 * [Dyn](docs/tutorials/dyn.md)
 * [Exoscale](docs/tutorials/exoscale.md)
@@ -137,36 +148,17 @@ The following tutorials are provided:
 * [RFC2136](docs/tutorials/rfc2136.md)
 * [TransIP](docs/tutorials/transip.md)
 * [VinylDNS](docs/tutorials/vinyldns.md)
+* [OVH](docs/tutorials/ovh.md)
+* [Scaleway](docs/tutorials/scaleway.md)
+* [Vultr](docs/tutorials/vultr.md)
+* [UltraDNS](docs/tutorials/ultradns.md)
 
 ### Running Locally
 
-#### Technical Requirements
-
-Make sure you have the following prerequisites:
-* A local Go 1.7+ development environment.
-* Access to a Google/AWS account with the DNS API enabled.
-* Access to a Kubernetes cluster that supports exposing Services, e.g. GKE.
+See the [contributor guide](docs/contributing/getting-started.md) for details on compiling
+from source.
 
 #### Setup Steps
-
-First, get ExternalDNS:
-
-```console
-$ git clone https://github.com/kubernetes-sigs/external-dns.git && cd external-dns
-```
-
-**This project uses [Go modules](https://github.com/golang/go/wiki/Modules) as
-introduced in Go 1.11 therefore you need Go >=1.11 installed in order to build.**
-If using Go 1.11 you also need to [activate Module
-support](https://github.com/golang/go/wiki/Modules#installing-and-activating-module-support).
-
-Assuming Go has been setup with module support it can be built simply by running:
-
-```console
-$ make
-```
-
-This will create external-dns in the build directory directly from master.
 
 Next, run an application and expose it via a Kubernetes Service:
 
@@ -253,7 +245,7 @@ Here's a rough outline on what is to come (subject to change):
 - [x] Support for DigitalOcean
 - [x] Multiple DNS names per Service
 
-### v0.5 - _current version_
+### v0.5
 
 - [x] Support for creating DNS records to multiple targets (for Google and AWS)
 - [x] Support for OpenStack Designate
@@ -266,11 +258,12 @@ Here's a rough outline on what is to come (subject to change):
 
 ### v0.6
 
-- [ ] Ability to replace Kops' [DNS Controller](https://github.com/kubernetes/kops/tree/master/dns-controller) (This could also directly become `v1.0`)
+- [ ] Ability to replace Kops' [DNS Controller](https://github.com/kubernetes/kops/tree/HEAD/dns-controller) (This could also directly become `v1.0`)
+- [x] Support for OVH
 
 ### v1.0
 
-- [ ] Ability to replace Kops' [DNS Controller](https://github.com/kubernetes/kops/tree/master/dns-controller)
+- [ ] Ability to replace Kops' [DNS Controller](https://github.com/kubernetes/kops/tree/HEAD/dns-controller)
 - [x] Ability to replace Zalando's [Mate](https://github.com/linki/mate)
 - [x] Ability to replace Molecule Software's [route53-kubernetes](https://github.com/wearemolecule/route53-kubernetes)
 
@@ -287,23 +280,22 @@ Have a look at [the milestones](https://github.com/kubernetes-sigs/external-dns/
 
 ## Contributing
 
-We encourage you to get involved with ExternalDNS, as users, contributors or as new maintainers that can take over some parts like different providers and help with code reviews.
+Are you interested in contributing to external-dns? We, the maintainers and community, would love your
+suggestions, contributions, and help! Also, the maintainers can be contacted at any time to learn more
+about how to get involved.
 
-Providers which currently need maintainers:
+We also encourage ALL active community participants to act as if they are maintainers, even if you don't have
+"official" write permissions. This is a community effort, we are here to serve the Kubernetes community. If you
+have an active interest and you want to get involved, you have real power! Don't assume that the only people who
+can get things done around here are the "maintainers". We also would love to add more "official" maintainers, so
+show us what you can do!
 
-* Azure
-* Cloudflare
-* Digital Ocean
-* Google Cloud Platform
-
-Any provider should have at least one maintainer. It would be nice if you run it in production, but it is not required.
-You should check changes and make sure your provider is working correctly.
-
-It would be also great to have an automated end-to-end test for different cloud providers, so help from Kubernetes maintainers and their idea on how this can be done would be valuable.
+The external-dns project is currently in need of maintainers for specific DNS providers. Ideally each provider
+would have at least two maintainers. It would be nice if the maintainers run the provider in production, but it
+is not strictly required. Provider listed [here](https://github.com/kubernetes-sigs/external-dns#status-of-providers)
+that do not have a maintainer listed are in need of assistance.
 
 Read the [contributing guidelines](CONTRIBUTING.md) and have a look at [the contributing docs](docs/contributing/getting-started.md) to learn about building the project, the project structure, and the purpose of each package.
-
-If you are interested please reach out to us on the [Kubernetes slack](http://slack.k8s.io) in the #external-dns channel.
 
 For an overview on how to write new Sources and Providers check out [Sources and Providers](docs/contributing/sources-and-providers.md).
 
@@ -311,10 +303,11 @@ For an overview on how to write new Sources and Providers check out [Sources and
 
 ExternalDNS is an effort to unify the following similar projects in order to bring the Kubernetes community an easy and predictable way of managing DNS records across cloud providers based on their Kubernetes resources:
 
-* Kops' [DNS Controller](https://github.com/kubernetes/kops/tree/master/dns-controller)
+* Kops' [DNS Controller](https://github.com/kubernetes/kops/tree/HEAD/dns-controller)
 * Zalando's [Mate](https://github.com/linki/mate)
 * Molecule Software's [route53-kubernetes](https://github.com/wearemolecule/route53-kubernetes)
 
-### Code of conduct
+### User Demo How-To Blogs and Examples
 
-Participation in the Kubernetes community is governed by the [Kubernetes Code of Conduct](code-of-conduct.md).
+* A full demo on GKE Kubernetes. See [How-to Kubernetes with DNS management (ssl-manager pre-req)](https://medium.com/@jpantjsoha/how-to-kubernetes-with-dns-management-for-gitops-31239ea75d8d)
+* Run external-dns on GKE with workload identity. See [Kubernetes, ingress-nginx, cert-manager & external-dns](https://blog.atomist.com/kubernetes-ingress-nginx-cert-manager-external-dns/)

@@ -18,26 +18,24 @@ package source
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"sort"
 	"strings"
 	"text/template"
-
-	kubeinformers "k8s.io/client-go/informers"
-	coreinformers "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/tools/cache"
+	"time"
 
 	log "github.com/sirupsen/logrus"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
+	kubeinformers "k8s.io/client-go/informers"
+	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 
-	"time"
-
-	"github.com/kubernetes-sigs/external-dns/endpoint"
+	"sigs.k8s.io/external-dns/endpoint"
 )
 
 const (
@@ -53,21 +51,24 @@ type serviceSource struct {
 	client           kubernetes.Interface
 	namespace        string
 	annotationFilter string
+
 	// process Services with legacy annotations
-	compatibility            string
-	fqdnTemplate             *template.Template
-	combineFQDNAnnotation    bool
-	ignoreHostnameAnnotation bool
-	publishInternal          bool
-	publishHostIP            bool
-	serviceInformer          coreinformers.ServiceInformer
-	podInformer              coreinformers.PodInformer
-	nodeInformer             coreinformers.NodeInformer
-	serviceTypeFilter        map[string]struct{}
+	compatibility                  string
+	fqdnTemplate                   *template.Template
+	combineFQDNAnnotation          bool
+	ignoreHostnameAnnotation       bool
+	publishInternal                bool
+	publishHostIP                  bool
+	alwaysPublishNotReadyAddresses bool
+	serviceInformer                coreinformers.ServiceInformer
+	endpointsInformer              coreinformers.EndpointsInformer
+	podInformer                    coreinformers.PodInformer
+	nodeInformer                   coreinformers.NodeInformer
+	serviceTypeFilter              map[string]struct{}
 }
 
 // NewServiceSource creates a new serviceSource with the given config.
-func NewServiceSource(kubeClient kubernetes.Interface, namespace, annotationFilter string, fqdnTemplate string, combineFqdnAnnotation bool, compatibility string, publishInternal bool, publishHostIP bool, serviceTypeFilter []string, ignoreHostnameAnnotation bool) (Source, error) {
+func NewServiceSource(kubeClient kubernetes.Interface, namespace, annotationFilter string, fqdnTemplate string, combineFqdnAnnotation bool, compatibility string, publishInternal bool, publishHostIP bool, alwaysPublishNotReadyAddresses bool, serviceTypeFilter []string, ignoreHostnameAnnotation bool) (Source, error) {
 	var (
 		tmpl *template.Template
 		err  error
@@ -85,6 +86,7 @@ func NewServiceSource(kubeClient kubernetes.Interface, namespace, annotationFilt
 	// Set resync period to 0, to prevent processing when nothing has changed
 	informerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithNamespace(namespace))
 	serviceInformer := informerFactory.Core().V1().Services()
+	endpointsInformer := informerFactory.Core().V1().Endpoints()
 	podInformer := informerFactory.Core().V1().Pods()
 	nodeInformer := informerFactory.Core().V1().Nodes()
 
@@ -92,21 +94,24 @@ func NewServiceSource(kubeClient kubernetes.Interface, namespace, annotationFilt
 	serviceInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				log.Debug("service added")
+			},
+		},
+	)
+	endpointsInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
 			},
 		},
 	)
 	podInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				log.Debug("pod added")
 			},
 		},
 	)
 	nodeInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				log.Debug("node added")
 			},
 		},
 	)
@@ -115,8 +120,11 @@ func NewServiceSource(kubeClient kubernetes.Interface, namespace, annotationFilt
 	informerFactory.Start(wait.NeverStop)
 
 	// wait for the local cache to be populated.
-	err = wait.Poll(time.Second, 60*time.Second, func() (bool, error) {
-		return serviceInformer.Informer().HasSynced() == true, nil
+	err = poll(time.Second, 60*time.Second, func() (bool, error) {
+		return serviceInformer.Informer().HasSynced() &&
+			endpointsInformer.Informer().HasSynced() &&
+			podInformer.Informer().HasSynced() &&
+			nodeInformer.Informer().HasSynced(), nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to sync cache: %v", err)
@@ -130,24 +138,26 @@ func NewServiceSource(kubeClient kubernetes.Interface, namespace, annotationFilt
 	}
 
 	return &serviceSource{
-		client:                   kubeClient,
-		namespace:                namespace,
-		annotationFilter:         annotationFilter,
-		compatibility:            compatibility,
-		fqdnTemplate:             tmpl,
-		combineFQDNAnnotation:    combineFqdnAnnotation,
-		ignoreHostnameAnnotation: ignoreHostnameAnnotation,
-		publishInternal:          publishInternal,
-		publishHostIP:            publishHostIP,
-		serviceInformer:          serviceInformer,
-		podInformer:              podInformer,
-		nodeInformer:             nodeInformer,
-		serviceTypeFilter:        serviceTypes,
+		client:                         kubeClient,
+		namespace:                      namespace,
+		annotationFilter:               annotationFilter,
+		compatibility:                  compatibility,
+		fqdnTemplate:                   tmpl,
+		combineFQDNAnnotation:          combineFqdnAnnotation,
+		ignoreHostnameAnnotation:       ignoreHostnameAnnotation,
+		publishInternal:                publishInternal,
+		publishHostIP:                  publishHostIP,
+		alwaysPublishNotReadyAddresses: alwaysPublishNotReadyAddresses,
+		serviceInformer:                serviceInformer,
+		endpointsInformer:              endpointsInformer,
+		podInformer:                    podInformer,
+		nodeInformer:                   nodeInformer,
+		serviceTypeFilter:              serviceTypes,
 	}, nil
 }
 
 // Endpoints returns endpoint objects for each service that should be processed.
-func (sc *serviceSource) Endpoints() ([]*endpoint.Endpoint, error) {
+func (sc *serviceSource) Endpoints(ctx context.Context) ([]*endpoint.Endpoint, error) {
 	services, err := sc.serviceInformer.Lister().Services(sc.namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -211,6 +221,7 @@ func (sc *serviceSource) Endpoints() ([]*endpoint.Endpoint, error) {
 	return endpoints, nil
 }
 
+// extractHeadlessEndpoints extracts endpoints from a headless service using the "Endpoints" Kubernetes API resource
 func (sc *serviceSource) extractHeadlessEndpoints(svc *v1.Service, hostname string, ttl endpoint.TTL) []*endpoint.Endpoint {
 	var endpoints []*endpoint.Endpoint
 
@@ -223,6 +234,12 @@ func (sc *serviceSource) extractHeadlessEndpoints(svc *v1.Service, hostname stri
 		return nil
 	}
 
+	endpointsObject, err := sc.endpointsInformer.Lister().Endpoints(svc.Namespace).Get(svc.GetName())
+	if err != nil {
+		log.Errorf("Get endpoints of service[%s] error:%v", svc.GetName(), err)
+		return endpoints
+	}
+
 	pods, err := sc.podInformer.Lister().Pods(svc.Namespace).List(selector)
 	if err != nil {
 		log.Errorf("List Pods of service[%s] error:%v", svc.GetName(), err)
@@ -230,32 +247,47 @@ func (sc *serviceSource) extractHeadlessEndpoints(svc *v1.Service, hostname stri
 	}
 
 	targetsByHeadlessDomain := make(map[string][]string)
-	for _, v := range pods {
-		headlessDomains := []string{hostname}
-
-		if v.Spec.Hostname != "" {
-			headlessDomains = append(headlessDomains, fmt.Sprintf("%s.%s", v.Spec.Hostname, hostname))
+	for _, subset := range endpointsObject.Subsets {
+		addresses := subset.Addresses
+		if svc.Spec.PublishNotReadyAddresses || sc.alwaysPublishNotReadyAddresses {
+			addresses = append(addresses, subset.NotReadyAddresses...)
 		}
-		for _, headlessDomain := range headlessDomains {
-			if sc.publishHostIP == true {
-				log.Debugf("Generating matching endpoint %s with HostIP %s", headlessDomain, v.Status.HostIP)
-				// To reduce traffice on the DNS API only add record for running Pods. Good Idea?
-				if v.Status.Phase == v1.PodRunning {
-					targetsByHeadlessDomain[headlessDomain] = append(targetsByHeadlessDomain[headlessDomain], v.Status.HostIP)
-				} else {
-					log.Debugf("Pod %s is not in running phase", v.Spec.Hostname)
-				}
-			} else {
-				log.Debugf("Generating matching endpoint %s with PodIP %s", headlessDomain, v.Status.PodIP)
-				// To reduce traffice on the DNS API only add record for running Pods. Good Idea?
-				if v.Status.Phase == v1.PodRunning {
-					targetsByHeadlessDomain[headlessDomain] = append(targetsByHeadlessDomain[headlessDomain], v.Status.PodIP)
-				} else {
-					log.Debugf("Pod %s is not in running phase", v.Spec.Hostname)
+
+		for _, address := range addresses {
+			// find pod for this address
+			if address.TargetRef.APIVersion != "" || address.TargetRef.Kind != "Pod" {
+				log.Debugf("Skipping address because its target is not a pod: %v", address)
+				continue
+			}
+			var pod *v1.Pod
+			for _, v := range pods {
+				if v.Name == address.TargetRef.Name {
+					pod = v
+					break
 				}
 			}
-		}
+			if pod == nil {
+				log.Errorf("Pod %s not found for address %v", address.TargetRef.Name, address)
+				continue
+			}
 
+			headlessDomains := []string{hostname}
+			if pod.Spec.Hostname != "" {
+				headlessDomains = append(headlessDomains, fmt.Sprintf("%s.%s", pod.Spec.Hostname, hostname))
+			}
+
+			for _, headlessDomain := range headlessDomains {
+				var ep string
+				if sc.publishHostIP {
+					ep = pod.Status.HostIP
+					log.Debugf("Generating matching endpoint %s with HostIP %s", headlessDomain, ep)
+				} else {
+					ep = address.IP
+					log.Debugf("Generating matching endpoint %s with EndpointAddress IP %s", headlessDomain, ep)
+				}
+				targetsByHeadlessDomain[headlessDomain] = append(targetsByHeadlessDomain[headlessDomain], ep)
+			}
+		}
 	}
 
 	headlessDomains := []string{}
@@ -264,7 +296,20 @@ func (sc *serviceSource) extractHeadlessEndpoints(svc *v1.Service, hostname stri
 	}
 	sort.Strings(headlessDomains)
 	for _, headlessDomain := range headlessDomains {
-		targets := targetsByHeadlessDomain[headlessDomain]
+		allTargets := targetsByHeadlessDomain[headlessDomain]
+		targets := []string{}
+
+		deduppedTargets := map[string]struct{}{}
+		for _, target := range allTargets {
+			if _, ok := deduppedTargets[target]; ok {
+				log.Debugf("Removing duplicate target %s", target)
+				continue
+			}
+
+			deduppedTargets[target] = struct{}{}
+			targets = append(targets, target)
+		}
+
 		if ttl.IsConfigured() {
 			endpoints = append(endpoints, endpoint.NewEndpointWithTTL(headlessDomain, endpoint.RecordTypeA, ttl, targets...))
 		} else {
@@ -466,6 +511,7 @@ func (sc *serviceSource) extractNodePortTargets(svc *v1.Service) (endpoint.Targe
 
 	switch svc.Spec.ExternalTrafficPolicy {
 	case v1.ServiceExternalTrafficPolicyTypeLocal:
+		nodesMap := map[*v1.Node]struct{}{}
 		labelSelector, err := metav1.ParseToLabelSelector(labels.Set(svc.Spec.Selector).AsSelectorPreValidated().String())
 		if err != nil {
 			return nil, err
@@ -486,7 +532,10 @@ func (sc *serviceSource) extractNodePortTargets(svc *v1.Service) (endpoint.Targe
 					log.Debugf("Unable to find node where Pod %s is running", v.Spec.Hostname)
 					continue
 				}
-				nodes = append(nodes, node)
+				if _, ok := nodesMap[node]; !ok {
+					nodesMap[node] = *new(struct{})
+					nodes = append(nodes, node)
+				}
 			}
 		}
 	default:
@@ -548,4 +597,24 @@ func (sc *serviceSource) extractNodePortEndpoints(svc *v1.Service, nodeTargets e
 	}
 
 	return endpoints
+}
+
+func (sc *serviceSource) AddEventHandler(ctx context.Context, handler func()) {
+	log.Debug("Adding event handler for service")
+
+	// Right now there is no way to remove event handler from informer, see:
+	// https://github.com/kubernetes/kubernetes/issues/79610
+	sc.serviceInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				handler()
+			},
+			UpdateFunc: func(old interface{}, new interface{}) {
+				handler()
+			},
+			DeleteFunc: func(obj interface{}) {
+				handler()
+			},
+		},
+	)
 }

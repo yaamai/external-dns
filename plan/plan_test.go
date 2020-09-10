@@ -19,10 +19,11 @@ package plan
 import (
 	"testing"
 
-	"github.com/kubernetes-sigs/external-dns/endpoint"
-	"github.com/kubernetes-sigs/external-dns/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+
+	"sigs.k8s.io/external-dns/endpoint"
+	"sigs.k8s.io/external-dns/internal/testutils"
 )
 
 type PlanTestSuite struct {
@@ -37,10 +38,15 @@ type PlanTestSuite struct {
 	bar127AWithTTL                   *endpoint.Endpoint
 	bar127AWithProviderSpecificTrue  *endpoint.Endpoint
 	bar127AWithProviderSpecificFalse *endpoint.Endpoint
+	bar127AWithProviderSpecificUnset *endpoint.Endpoint
 	bar192A                          *endpoint.Endpoint
 	multiple1                        *endpoint.Endpoint
 	multiple2                        *endpoint.Endpoint
 	multiple3                        *endpoint.Endpoint
+	domainFilterFiltered1            *endpoint.Endpoint
+	domainFilterFiltered2            *endpoint.Endpoint
+	domainFilterFiltered3            *endpoint.Endpoint
+	domainFilterExcluded             *endpoint.Endpoint
 }
 
 func (suite *PlanTestSuite) SetupTest() {
@@ -133,6 +139,15 @@ func (suite *PlanTestSuite) SetupTest() {
 			},
 		},
 	}
+	suite.bar127AWithProviderSpecificUnset = &endpoint.Endpoint{
+		DNSName:    "bar",
+		Targets:    endpoint.Targets{"127.0.0.1"},
+		RecordType: "A",
+		Labels: map[string]string{
+			endpoint.ResourceLabelKey: "ingress/default/bar-127",
+		},
+		ProviderSpecific: endpoint.ProviderSpecific{},
+	}
 	suite.bar192A = &endpoint.Endpoint{
 		DNSName:    "bar",
 		Targets:    endpoint.Targets{"192.168.0.1"},
@@ -158,6 +173,26 @@ func (suite *PlanTestSuite) SetupTest() {
 		Targets:       endpoint.Targets{"192.168.0.2"},
 		RecordType:    "A",
 		SetIdentifier: "test-set-2",
+	}
+	suite.domainFilterFiltered1 = &endpoint.Endpoint{
+		DNSName:    "foo.domain.tld",
+		Targets:    endpoint.Targets{"1.2.3.4"},
+		RecordType: "A",
+	}
+	suite.domainFilterFiltered2 = &endpoint.Endpoint{
+		DNSName:    "bar.domain.tld",
+		Targets:    endpoint.Targets{"1.2.3.5"},
+		RecordType: "A",
+	}
+	suite.domainFilterFiltered3 = &endpoint.Endpoint{
+		DNSName:    "baz.domain.tld",
+		Targets:    endpoint.Targets{"1.2.3.6"},
+		RecordType: "A",
+	}
+	suite.domainFilterExcluded = &endpoint.Endpoint{
+		DNSName:    "foo.ex.domain.tld",
+		Targets:    endpoint.Targets{"1.1.1.1"},
+		RecordType: "A",
 	}
 }
 
@@ -257,6 +292,54 @@ func (suite *PlanTestSuite) TestSyncSecondRoundWithProviderSpecificChange() {
 		Policies: []Policy{&SyncPolicy{}},
 		Current:  current,
 		Desired:  desired,
+	}
+
+	changes := p.Calculate().Changes
+	validateEntries(suite.T(), changes.Create, expectedCreate)
+	validateEntries(suite.T(), changes.UpdateNew, expectedUpdateNew)
+	validateEntries(suite.T(), changes.UpdateOld, expectedUpdateOld)
+	validateEntries(suite.T(), changes.Delete, expectedDelete)
+}
+
+func (suite *PlanTestSuite) TestSyncSecondRoundWithProviderSpecificDefaultFalse() {
+	current := []*endpoint.Endpoint{suite.bar127AWithProviderSpecificFalse}
+	desired := []*endpoint.Endpoint{suite.bar127AWithProviderSpecificUnset}
+	expectedCreate := []*endpoint.Endpoint{}
+	expectedUpdateOld := []*endpoint.Endpoint{}
+	expectedUpdateNew := []*endpoint.Endpoint{}
+	expectedDelete := []*endpoint.Endpoint{}
+
+	p := &Plan{
+		Policies: []Policy{&SyncPolicy{}},
+		Current:  current,
+		Desired:  desired,
+		PropertyComparator: func(name, previous, current string) bool {
+			return CompareBoolean(false, name, previous, current)
+		},
+	}
+
+	changes := p.Calculate().Changes
+	validateEntries(suite.T(), changes.Create, expectedCreate)
+	validateEntries(suite.T(), changes.UpdateNew, expectedUpdateNew)
+	validateEntries(suite.T(), changes.UpdateOld, expectedUpdateOld)
+	validateEntries(suite.T(), changes.Delete, expectedDelete)
+}
+
+func (suite *PlanTestSuite) TestSyncSecondRoundWithProviderSpecificDefualtTrue() {
+	current := []*endpoint.Endpoint{suite.bar127AWithProviderSpecificTrue}
+	desired := []*endpoint.Endpoint{suite.bar127AWithProviderSpecificUnset}
+	expectedCreate := []*endpoint.Endpoint{}
+	expectedUpdateOld := []*endpoint.Endpoint{}
+	expectedUpdateNew := []*endpoint.Endpoint{}
+	expectedDelete := []*endpoint.Endpoint{}
+
+	p := &Plan{
+		Policies: []Policy{&SyncPolicy{}},
+		Current:  current,
+		Desired:  desired,
+		PropertyComparator: func(name, previous, current string) bool {
+			return CompareBoolean(true, name, previous, current)
+		},
 	}
 
 	changes := p.Calculate().Changes
@@ -482,6 +565,52 @@ func (suite *PlanTestSuite) TestSetIdentifierUpdateCreatesAndDeletes() {
 		Policies: []Policy{&SyncPolicy{}},
 		Current:  current,
 		Desired:  desired,
+	}
+
+	changes := p.Calculate().Changes
+	validateEntries(suite.T(), changes.Create, expectedCreate)
+	validateEntries(suite.T(), changes.UpdateNew, expectedUpdateNew)
+	validateEntries(suite.T(), changes.UpdateOld, expectedUpdateOld)
+	validateEntries(suite.T(), changes.Delete, expectedDelete)
+}
+
+func (suite *PlanTestSuite) TestDomainFiltersInitial() {
+
+	current := []*endpoint.Endpoint{suite.domainFilterExcluded}
+	desired := []*endpoint.Endpoint{suite.domainFilterExcluded, suite.domainFilterFiltered1, suite.domainFilterFiltered2, suite.domainFilterFiltered3}
+	expectedCreate := []*endpoint.Endpoint{suite.domainFilterFiltered1, suite.domainFilterFiltered2, suite.domainFilterFiltered3}
+	expectedUpdateOld := []*endpoint.Endpoint{}
+	expectedUpdateNew := []*endpoint.Endpoint{}
+	expectedDelete := []*endpoint.Endpoint{}
+
+	p := &Plan{
+		Policies:     []Policy{&SyncPolicy{}},
+		Current:      current,
+		Desired:      desired,
+		DomainFilter: endpoint.NewDomainFilterWithExclusions([]string{"domain.tld"}, []string{"ex.domain.tld"}),
+	}
+
+	changes := p.Calculate().Changes
+	validateEntries(suite.T(), changes.Create, expectedCreate)
+	validateEntries(suite.T(), changes.UpdateNew, expectedUpdateNew)
+	validateEntries(suite.T(), changes.UpdateOld, expectedUpdateOld)
+	validateEntries(suite.T(), changes.Delete, expectedDelete)
+}
+
+func (suite *PlanTestSuite) TestDomainFiltersUpdate() {
+
+	current := []*endpoint.Endpoint{suite.domainFilterExcluded, suite.domainFilterFiltered1, suite.domainFilterFiltered2}
+	desired := []*endpoint.Endpoint{suite.domainFilterExcluded, suite.domainFilterFiltered1, suite.domainFilterFiltered2, suite.domainFilterFiltered3}
+	expectedCreate := []*endpoint.Endpoint{suite.domainFilterFiltered3}
+	expectedUpdateOld := []*endpoint.Endpoint{}
+	expectedUpdateNew := []*endpoint.Endpoint{}
+	expectedDelete := []*endpoint.Endpoint{}
+
+	p := &Plan{
+		Policies:     []Policy{&SyncPolicy{}},
+		Current:      current,
+		Desired:      desired,
+		DomainFilter: endpoint.NewDomainFilterWithExclusions([]string{"domain.tld"}, []string{"ex.domain.tld"}),
 	}
 
 	changes := p.Calculate().Changes

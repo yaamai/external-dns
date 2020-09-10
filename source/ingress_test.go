@@ -17,20 +17,19 @@ limitations under the License.
 package source
 
 import (
+	"context"
 	"testing"
 	"time"
-
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes/fake"
-
-	"github.com/kubernetes-sigs/external-dns/endpoint"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+
+	"sigs.k8s.io/external-dns/endpoint"
 )
 
 // Validates that ingressSource is a Source
@@ -64,19 +63,19 @@ func (suite *IngressSuite) SetupTest() {
 		hostnames:   []string{"v1"},
 		annotations: map[string]string{ALBDualstackAnnotationKey: ALBDualstackAnnotationValue},
 	}).Ingress()
-	_, err = fakeClient.Extensions().Ingresses(suite.fooWithTargets.Namespace).Create(suite.fooWithTargets)
+	_, err = fakeClient.ExtensionsV1beta1().Ingresses(suite.fooWithTargets.Namespace).Create(context.Background(), suite.fooWithTargets, metav1.CreateOptions{})
 	suite.NoError(err, "should succeed")
 }
 
 func (suite *IngressSuite) TestResourceLabelIsSet() {
-	endpoints, _ := suite.sc.Endpoints()
+	endpoints, _ := suite.sc.Endpoints(context.Background())
 	for _, ep := range endpoints {
 		suite.Equal("ingress/default/foo-with-targets", ep.Labels[endpoint.ResourceLabelKey], "should set correct resource label")
 	}
 }
 
 func (suite *IngressSuite) TestDualstackLabelIsSet() {
-	endpoints, _ := suite.sc.Endpoints()
+	endpoints, _ := suite.sc.Endpoints(context.Background())
 	for _, ep := range endpoints {
 		suite.Equal("true", ep.Labels[endpoint.DualstackLabelKey], "should set dualstack label to true")
 	}
@@ -816,6 +815,16 @@ func testIngressEndpoints(t *testing.T) {
 					dnsnames: []string{"example2.org"},
 					ips:      []string{"8.8.8.8"},
 				},
+				{
+					name:      "fake3",
+					namespace: namespace,
+					annotations: map[string]string{
+						targetAnnotationKey: "ingress-target.com",
+						ttlAnnotationKey:    "10s",
+					},
+					dnsnames: []string{"example3.org"},
+					ips:      []string{"8.8.4.4"},
+				},
 			},
 			expected: []*endpoint.Endpoint{
 				{
@@ -827,6 +836,11 @@ func testIngressEndpoints(t *testing.T) {
 					DNSName:   "example2.org",
 					Targets:   endpoint.Targets{"ingress-target.com"},
 					RecordTTL: endpoint.TTL(1),
+				},
+				{
+					DNSName:   "example3.org",
+					Targets:   endpoint.Targets{"ingress-target.com"},
+					RecordTTL: endpoint.TTL(10),
 				},
 			},
 		},
@@ -987,7 +1001,7 @@ func testIngressEndpoints(t *testing.T) {
 			}
 
 			fakeClient := fake.NewSimpleClientset()
-			ingressSource, _ := NewIngressSource(
+			source, _ := NewIngressSource(
 				fakeClient,
 				ti.targetNamespace,
 				ti.annotationFilter,
@@ -996,29 +1010,41 @@ func testIngressEndpoints(t *testing.T) {
 				ti.ignoreHostnameAnnotation,
 			)
 			for _, ingress := range ingresses {
-				_, err := fakeClient.Extensions().Ingresses(ingress.Namespace).Create(ingress)
+				_, err := fakeClient.ExtensionsV1beta1().Ingresses(ingress.Namespace).Create(context.Background(), ingress, metav1.CreateOptions{})
 				require.NoError(t, err)
 			}
 
-			var res []*endpoint.Endpoint
-			var err error
+			// Wait for the Ingress resources to be visible to the source. We check the
+			// source's informer cache to detect when this occurs. (This violates encapsulation
+			// but is okay as this is a test and we want to ensure the informer's cache updates.)
+			concreteIngressSource := source.(*ingressSource)
+			ingressLister := concreteIngressSource.ingressInformer.Lister()
+			err := poll(250*time.Millisecond, 6*time.Second, func() (bool, error) {
+				allIngressesPresent := true
+				for _, ingress := range ingresses {
+					// Skip ingresses that the source would also skip.
+					if ti.targetNamespace != "" && ti.targetNamespace != ingress.Namespace {
+						continue
+					}
 
-			// wait up to a few seconds for new resources to appear in informer cache.
-			err = wait.Poll(time.Second, 3*time.Second, func() (bool, error) {
-				res, err = ingressSource.Endpoints()
-				if err != nil {
-					// stop waiting if we get an error
-					return true, err
+					// Check for the presence of this ingress.
+					_, err := ingressLister.Ingresses(ingress.Namespace).Get(ingress.Name)
+					if err != nil {
+						allIngressesPresent = false
+						break
+					}
 				}
-				return len(res) >= len(ti.expected), nil
+				return allIngressesPresent, nil
 			})
+			require.NoError(t, err)
 
+			// Informer cache has all of the ingresses. Retrieve and validate their endpoints.
+			res, err := source.Endpoints(context.Background())
 			if ti.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
-
 			validateEndpoints(t, res, ti.expected)
 		})
 	}

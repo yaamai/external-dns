@@ -17,15 +17,16 @@ limitations under the License.
 package source
 
 import (
+	"context"
 	"net/url"
 
 	cfclient "github.com/cloudfoundry-community/go-cfclient"
-	"github.com/kubernetes-sigs/external-dns/endpoint"
+
+	"sigs.k8s.io/external-dns/endpoint"
 )
 
 type cloudfoundrySource struct {
 	client *cfclient.Client
-	config Config
 }
 
 // NewCloudFoundrySource creates a new cloudfoundrySource with the given config
@@ -35,8 +36,11 @@ func NewCloudFoundrySource(cfClient *cfclient.Client) (Source, error) {
 	}, nil
 }
 
+func (rs *cloudfoundrySource) AddEventHandler(ctx context.Context, handler func()) {
+}
+
 // Endpoints returns endpoint objects
-func (rs *cloudfoundrySource) Endpoints() ([]*endpoint.Endpoint, error) {
+func (rs *cloudfoundrySource) Endpoints(ctx context.Context) ([]*endpoint.Endpoint, error) {
 	endpoints := []*endpoint.Endpoint{}
 
 	u, err := url.Parse(rs.client.Config.ApiAddress)

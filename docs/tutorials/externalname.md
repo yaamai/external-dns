@@ -2,7 +2,7 @@
 
 This tutorial describes how to setup ExternalDNS for usage in conjunction with an ExternalName service.
 
-## Usecases
+## Use cases
 
 The main use cases that inspired this feature is the necessity for having a subdomain pointing to an external domain. In this scenario, it makes sense for the subdomain to have a CNAME record pointing to the external domain.
 
@@ -10,18 +10,24 @@ The main use cases that inspired this feature is the necessity for having a subd
 
 ### External DNS
 ```yaml
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: external-dns
 spec:
   strategy:
     type: Recreate
+  selector:
+    matchLabels:
+      app: external-dns
   template:
+    metadata:
+      labels:
+        app: external-dns
     spec:
       containers:
       - name: external-dns
-        image: registry.opensource.zalan.do/teapot/external-dns:latest
+        image: k8s.gcr.io/external-dns/external-dns:v0.7.3
         args:
         - --log-level=debug
         - --source=service
@@ -44,7 +50,7 @@ metadata:
     external-dns.alpha.kubernetes.io/hostname: tenant1.example.org,tenant2.example.org
 spec:
   type: ExternalName
-  externalName: aws.external.com
+  externalName: aws.example.org
 ```
 
 This will create 2 CNAME records pointing to `aws.example.org`:

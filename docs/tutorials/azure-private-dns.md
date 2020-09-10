@@ -19,7 +19,7 @@ Therefore, please see the subsequent prerequisites.
 
 Helm is used to deploy the ingress controller. 
 
-We employ the popular chart [stable/nginx-ingress](https://github.com/helm/charts/tree/master/stable/nginx-ingress).
+We employ the popular chart [stable/nginx-ingress](https://github.com/helm/charts/tree/HEAD/stable/nginx-ingress).
 
 ```
 $ helm install stable/nginx-ingress \
@@ -101,8 +101,8 @@ $ az network private-dns link vnet create -g externaldns -n mylink \
 ExternalDNS needs permissions to make changes in Azure Private DNS.  
 These permissions are roles assigned to the service principal used by ExternalDNS.
 
-A service principal with a minimum access level of `contributor` to the Private DNS zone(s) and `reader` to the resource group containing the Azure Private DNS zone(s) is necessary.
-More powerful role-assignments like `owner` or assignments on subscription-level work too. 
+A service principal with a minimum access level of `Private DNS Zone Contributor` to the Private DNS zone(s) and `Reader` to the resource group containing the Azure Private DNS zone(s) is necessary.
+More powerful role-assignments like `Owner` or assignments on subscription-level work too. 
 
 Start off by **creating the service principal** without role-assignments.
 ```
@@ -134,7 +134,7 @@ Now, **create role assignments**.
 $ az role assignment create --role "Reader" --assignee <appId GUID> --scope <resource group resource id>  
 
 # 2. as a contributor to DNS Zone itself
-$ az role assignment create --role "Contributor" --assignee <appId GUID> --scope <dns zone resource id>  
+$ az role assignment create --role "Private DNS Zone Contributor" --assignee <appId GUID> --scope <dns zone resource id>  
 ```
 
 ## Deploy ExternalDNS
@@ -150,11 +150,14 @@ The credentials of the service principal are provided to ExternalDNS as environm
 
 ### Manifest (for clusters without RBAC enabled)
 ```yaml
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: externaldns
 spec:
+  selector:
+    matchLabels:
+      app: externaldns
   strategy:
     type: Recreate
   template:
@@ -164,7 +167,7 @@ spec:
     spec:
       containers:
       - name: externaldns
-        image: registry.opensource.zalan.do/teapot/external-dns:latest
+        image: k8s.gcr.io/external-dns/external-dns:v0.7.3
         args:
         - --source=service
         - --source=ingress
@@ -194,12 +197,9 @@ metadata:
   name: externaldns
 rules:
 - apiGroups: [""]
-  resources: ["services"]
+  resources: ["services","endpoints","pods"]
   verbs: ["get","watch","list"]
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get","watch","list"]
-- apiGroups: ["extensions"] 
+- apiGroups: ["extensions","networking.k8s.io"]
   resources: ["ingresses"] 
   verbs: ["get","watch","list"]
 - apiGroups: [""]
@@ -219,11 +219,14 @@ subjects:
   name: externaldns
   namespace: default
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: externaldns
 spec:
+  selector:
+    matchLabels:
+      app: externaldns
   strategy:
     type: Recreate
   template:
@@ -234,7 +237,7 @@ spec:
       serviceAccountName: externaldns
       containers:
       - name: externaldns
-        image: registry.opensource.zalan.do/teapot/external-dns:latest
+        image: k8s.gcr.io/external-dns/external-dns:v0.7.3
         args:
         - --source=service
         - --source=ingress
@@ -268,12 +271,9 @@ metadata:
   name: externaldns
 rules:
 - apiGroups: [""]
-  resources: ["services"]
+  resources: ["services","endpoints","pods"]
   verbs: ["get","watch","list"]
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get","watch","list"]
-- apiGroups: ["extensions"]
+- apiGroups: ["extensions","networking.k8s.io"]
   resources: ["ingresses"]
   verbs: ["get","watch","list"]
 ---
@@ -289,11 +289,14 @@ subjects:
 - kind: ServiceAccount
   name: externaldns
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: externaldns
 spec:
+  selector:
+    matchLabels:
+      app: externaldns
   strategy:
     type: Recreate
   template:
@@ -304,7 +307,7 @@ spec:
       serviceAccountName: externaldns
       containers:
       - name: externaldns
-        image: registry.opensource.zalan.do/teapot/external-dns:latest
+        image: k8s.gcr.io/external-dns/external-dns:v0.7.3
         args:
         - --source=service
         - --source=ingress
@@ -332,11 +335,14 @@ $ kubectl create -f externaldns.yaml
 Create a service file called 'nginx.yaml' with the following contents:
 
 ```yaml
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx
 spec:
+  selector:
+    matchLabels:
+      app: nginx
   template:
     metadata:
       labels:
@@ -362,7 +368,7 @@ spec:
   type: ClusterIP
   
 ---
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: nginx

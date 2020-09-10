@@ -19,9 +19,9 @@ package registry
 import (
 	"context"
 
-	"github.com/kubernetes-sigs/external-dns/endpoint"
-	"github.com/kubernetes-sigs/external-dns/plan"
-	"github.com/kubernetes-sigs/external-dns/provider"
+	"sigs.k8s.io/external-dns/endpoint"
+	"sigs.k8s.io/external-dns/plan"
+	"sigs.k8s.io/external-dns/provider"
 )
 
 // NoopRegistry implements registry interface without ownership directly propagating changes to dns provider
@@ -37,11 +37,16 @@ func NewNoopRegistry(provider provider.Provider) (*NoopRegistry, error) {
 }
 
 // Records returns the current records from the dns provider
-func (im *NoopRegistry) Records() ([]*endpoint.Endpoint, error) {
-	return im.provider.Records()
+func (im *NoopRegistry) Records(ctx context.Context) ([]*endpoint.Endpoint, error) {
+	return im.provider.Records(ctx)
 }
 
 // ApplyChanges propagates changes to the dns provider
 func (im *NoopRegistry) ApplyChanges(ctx context.Context, changes *plan.Changes) error {
 	return im.provider.ApplyChanges(ctx, changes)
+}
+
+// PropertyValuesEqual compares two property values for equality
+func (im *NoopRegistry) PropertyValuesEqual(attribute string, previous string, current string) bool {
+	return im.provider.PropertyValuesEqual(attribute, previous, current)
 }

@@ -1,14 +1,32 @@
+/*
+Copyright 2019 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package source
 
 import (
+	"context"
 	"testing"
 
-	"github.com/kubernetes-sigs/external-dns/endpoint"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"sigs.k8s.io/external-dns/endpoint"
 )
 
 func TestNodeSource(t *testing.T) {
@@ -305,7 +323,7 @@ func testNodeSourceEndpoints(t *testing.T) {
 				},
 			}
 
-			_, err := kubernetes.CoreV1().Nodes().Create(node)
+			_, err := kubernetes.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
 			require.NoError(t, err)
 
 			// Create our object under test and get the endpoints.
@@ -316,7 +334,7 @@ func testNodeSourceEndpoints(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			endpoints, err := client.Endpoints()
+			endpoints, err := client.Endpoints(context.Background())
 			if tc.expectError {
 				require.Error(t, err)
 			} else {

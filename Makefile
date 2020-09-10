@@ -27,28 +27,47 @@ cover:
 cover-html: cover
 	go tool cover -html cover.out
 
+.PHONY: go-lint
+
+# Run the golangci-lint tool
+go-lint:
+	golangci-lint run --timeout=15m ./...
+
+.PHONY: licensecheck
+
+# Run the licensecheck script to check for license headers
+licensecheck:
+	@echo ">> checking license header"
+	@licRes=$$(for file in $$(find . -type f -iname '*.go' ! -path './vendor/*') ; do \
+               awk 'NR<=5' $$file | grep -Eq "(Copyright|generated|GENERATED)" || echo $$file; \
+       done); \
+       if [ -n "$${licRes}" ]; then \
+               echo "license header checking failed:"; echo "$${licRes}"; \
+               exit 1; \
+       fi
+
 .PHONY: lint
 
 # Run all the linters
-lint:
-	golangci-lint run --timeout=5m ./...
+lint: licensecheck go-lint
 
 
 # The verify target runs tasks similar to the CI tasks, but without code coverage
 .PHONY: verify test
 
 test:
-	go test -v -race $(shell go list ./... | grep -v /vendor/)
+	go test -race -coverprofile=profile.cov ./...
 
 # The build targets allow to build the binary and docker image
 .PHONY: build build.docker build.mini
 
 BINARY        ?= external-dns
 SOURCES        = $(shell find . -name '*.go')
-IMAGE         ?= registry.opensource.zalan.do/teapot/$(BINARY)
+IMAGE_STAGING  = gcr.io/k8s-staging-external-dns/$(BINARY)
+IMAGE         ?= us.gcr.io/k8s-artifacts-prod/external-dns/$(BINARY)
 VERSION       ?= $(shell git describe --tags --always --dirty)
 BUILD_FLAGS   ?= -v
-LDFLAGS       ?= -X github.com/kubernetes-sigs/external-dns/pkg/apis/externaldns.Version=$(VERSION) -w -s
+LDFLAGS       ?= -X sigs.k8s.io/external-dns/pkg/apis/externaldns.Version=$(VERSION) -w -s
 
 build: build/$(BINARY)
 
@@ -59,10 +78,19 @@ build.push: build.docker
 	docker push "$(IMAGE):$(VERSION)"
 
 build.docker:
-	docker build --rm --tag "$(IMAGE):$(VERSION)" .
+	docker build --rm --tag "$(IMAGE):$(VERSION)" --build-arg VERSION="$(VERSION)" .
 
 build.mini:
-	docker build --rm --tag "$(IMAGE):$(VERSION)-mini" -f Dockerfile.mini .
+	docker build --rm --tag "$(IMAGE):$(VERSION)-mini" --build-arg VERSION="$(VERSION)" -f Dockerfile.mini .
 
 clean:
 	@rm -rf build
+
+ # Builds and push container images to the staging bucket.
+.PHONY: release.staging
+
+release.staging:
+	IMAGE=$(IMAGE_STAGING) $(MAKE) build.docker build.push
+
+release.prod:
+	$(MAKE) build.docker build.push

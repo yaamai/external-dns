@@ -1,3 +1,183 @@
+## Unreleased
+
+- Add quick start section to contributing docs (#1766) @seanmalloy
+- Enhance pull request template @seanmalloy
+- Improve errors context for AWS provider
+- Scaleway Provider (#1643) @Sh4d1
+- Enable azure_private_dns to work with non "AzurePublicCloud" clouds (#1578) @daddonpa
+- Fix typos in documentation @ddymko
+- Add Cloudflare documentation on use of `--zone-id-filter` (#1751) @loozhengyuan
+- Fix: alibaba cloud keeping create record (#1682) @LXM
+- Update all container registry references to use k8s.gcr.io @seanmalloy
+- Provide available prometheus metrics in documentation @vinny-sabatini
+- Fix index out of range when hostname has no dots (#1756) @chemasan
+- Fixes test coverage with coveralls (#1755) @jgrumboe
+- Add tutorial for GKE with workload identity (#1765) @ddgenome
+- Fix NodePort with externaltrafficpolicy targets duplication @codearky
+- Update contributing section in README (#1760) @seanmalloy
+
+## v0.7.3 - 2020-08-05
+
+- Fix: add serviceaccount name in kustomize deployment (#1689) @jmthvt
+- Updates Oracle OCI SDK to latest (#1687) @ericrrath
+- UltraDNS Provider (#1635) @kbhandari
+- Update apiVersions in docs (#1690) @ddgenome
+- use the github actions build status badge (#1702) @tariq1890 
+- Upgrade Oracle OCI SDK (#1688) @ericrrath 
+- update dependencies and minor dep tree cleanup (#1692) @tariq1890 
+- Update link for linode cloud manager (#1661) @phillc 
+- Remove occurrences of "master" from the project (#1636) @Raffo 
+- Create pull_request_template (#1662) @njuettner 
+- dependencies: Upgrade all k8s client-go dependent sources to v1.18.X (#1627) @josephglanville
+- add GitHub Actions (#1657) @Raffo 
+- add new source for istio virtual services (#1607) @tariq1890 
+- use latest Alpine version in ExternalDNS dockerfile (#1655) @tariq1890 
+- Update TTL docs to confirm DNSimple support (#1547) @weppos 
+- rm unused flag param istio-ingressgateways (#1649) @tariq1890 
+- Upgrade istio httpbin from 1.0 to 1.6 version (#1640) @ikovnatskymiacar
+- Add endpoints to kustomize base (#1638) @Raffo 
+- DigitalOcean: support multiple targets per endpoint (#1595) @tdyas 
+- Vultr : Version bump + changes (#1637) @ddymko
+- Hetzner DNS service support (#1570) @21h
+- Add OVH API rate limiting option (Fix #1546) (#1619) @Hugome
+- Add kustomize base (#1631) @Raffo 
+- increase test timeout to fix intermittent failures of ingress tests (#1612) @tdyas
+- AWS: change the order of the actions, DELETE before CREATE fixes #1411 (#1555) @OmerKahani
+- Fix handling of DNS updates for RFC2136 provider. (#1613) @dmayle
+- digitalocean: increase API page size (#1611) @tdyas 
+- improve linter quality for external-dns (#1618) @njuettner 
+- fix convert int to string bug (#1620) @tariq1890 
+
+## v0.7.2 - 2020-06-03
+
+- Update blogpost in README (#1610) @vanhumbeecka
+- Support for AWS Route53 in China (#1603) @greenu
+- Update Govcloud provider hosted zones (#1592) @clhuang
+- Fix issue with too large DNS messages (#1590) @dmayle
+- use the latest linode go version (#1587) @tariq1890
+- use istio client-go and clean up k8s deps (#1584) @tariq1890
+- Add owners for cloudflare and coredns providers (#1582) @Raffo
+- remove some code duplication in gateway source (#1575) @tariq1890
+- update Contour IngressRoute deps (#1569) @stevesloka
+- Make tests faster (#1568) @sheerun
+- Fix scheduling of reconciliation (#1567) @sheerun
+- fix minor typos in istio gateway source docs (#1566) @tariq1890
+- Provider structure refactor (#1565) @Raffo
+- Fix typo in ttl.md (#1564) @rtnpro
+- Fix goreportcard warnings (#1561) @squat
+- Use consistent headless service name in example (#1559) @lowkeyliesmyth
+- Update go versions to 1.14.x that were missed in commit 99cebfcf from PR #1476 (#1554) @stealthybox
+- Remove duplicate selector from DigitalOcean manifest (#1553) @ggordan
+- Upgrade DNSimple client and add support for contexts (#1551) @weppos
+- Upgrade github.com/miekg/dns to v1.1.25 (#1545) @davidcollom
+- Fix updates in CloudFlare provider (#1542) @sheerun
+- update readme for latest version (#1539) @elsesiy
+- Improve Cloudflare tests in preparation to fix other issues (#1537) @sheerun
+- Allow for custom property comparators (#1536) @sheerun
+- fix typo (#1535) @tmatias
+- Bump github.com/pkg/errors from 0.8.1 to 0.9.1 (#1531) @njuettner
+- Bump github.com/digitalocean/godo from 1.19.0 to 1.34.0 (#1530) @njuettner
+- Bump github.com/prometheus/client_golang from 1.0.0 to 1.5.1 (#1529) @njuettner
+- Bump github.com/akamai/AkamaiOPEN-edgegrid-golang from 0.9.10 to 0.9.11 (#1528) @njuettner
+- Fix RFC2316 Windows Documentation (#1516) @scottd018
+- remove dependency on kubernetes/kubernetes (#1513) @tariq1890
+- update akamai openapi dependency (#1511) @tariq1890
+- Vultr Provider (#1509) @ddymko
+- Add AWS region ap-east-1(HK) (#1497) @lovemai073
+- Fix: file coredns.go is not `goimports`-ed (#1496) @njuettner
+- Allow ZoneIDFilter for Cloudflare (#1494) @james-callahan
+- update etcd dependency to latest version (#1485) @tariq1890
+- Support for openshift routes (#1484) @jgrumboe
+- add --txt-suffix feature (#1483) @jgrumboe
+- update to go 1.14 (#1476) @jochen42
+- Multiple A records support for the same FQDN (#1475) @ytsarev
+- Implement annotation filter for CRD source (#1399) @ytsarev
+
+## v0.7.1 - 2020-04-01
+
+  - Prometheus metric: timestamp of last successful sync with the DNS provider (#1480) @njuettner
+  - Bump alpine base image to 3.11.5 (#1477) @Annegies
+  - Docs: Add first maintainers in list (#1472) @Raffo
+  - Fix DomainFilter type in OVH provider (#1469) @ytsarev
+  - New provider: OVH (#1439) @Hugome
+
+## v0.7.0 - 2020-03-10
+
+  - New source: Add support for Skipper's RouteGroup CRD (#1444) @szuecs
+  - Change DomainFilter to apply to records as well (#1442) @bl1nk
+  - Docs: Update docker image references of ExternalDNS (#1427) @tariq1890
+  - Remove duplicate targets from endpoints for headless services (#1426) @thomasv314
+  - Add issue templates to Github (#1424) @njuettner
+  - Azure: Don't use SPN to authenticate when clientid or secret is 'msi' (#1422) @norshtein
+  - Rfc2136: Add option to define minimum TTL (#1412) @ouzklcn
+  - Azure Private DNS: Fix updates of unchanged records (#1377) @jasper-d
+  - Headless service: Retrieve endpoints via Endpoints resource (#1005) @devkid
+
+## v0.6.0 - 2020-02-11
+
+  - Azure Private DNS: Fix endless loop in zone-detection (#1397) @saidst
+  - Uprade golangci-lint and add megacheck & interface linters (#1390) @tariq1890
+  - Update alpine base image to 3.11 (#1387) @tariq1890
+  - New provider: Akamai FastDNS (#1384) @KarstenSiemer
+  - Docs: Fix broken links (#1382) @ttonline6
+  - Docs: Fix broken links (#1381) @ttonline6
+  - Docs: Update AWS documentation (#1380) @otterley
+  - Docs: istio.md: update existing external-dns to enable Istio Gateway DNS for customers (#1378) @marcellodesales
+  - Remove context.TODO()s in external-dns (#1374) @tariq1890
+  - Docs: add region for aws-sd external-dns deployment (#1367) @guitarrapc
+  - Docs: a how-to of a working GCP GKE app demo (#1365) @jpantsjoha
+  - Add ctx parameter to provider interface and AWS API (#1364) @tariq1890
+  - Add version to binary for --version flag (#1361) @linki
+  - Update aws sdk dep and golangci-lint release (#1360) @tariq1890
+  - Add support for human-friendly TTL values (#1237) @hypnoglow
+  - Change ApplyChanges in RFC2136 to batch update (#1164) @h3ndrk
+  - Add --watchers flag to allow controller to respond automatically to Ingress or Service updates (#687) @jlamillan
+
+## v0.5.18 - 2020-01-09
+
+  - Use correct link to contributors guide (#1349) @szuecs
+  - AWS-SD: Rebrand AWS Auto Naming to Cloud Map (#1348) @vanekjar
+  - Add more linters and improve code quality (#1347) @tariq1890
+  - Suppress noisy logging of klog (#1344) @saidst
+  - Update VinylDNS documentation (#1342) @dgrizzanti
+  - Remove incubator references in README (#1341) @Raffo
+  - Rename project root package to sigs.k8s.io (#1334) @tariq1890
+  - Add CRD documentation and fix samples (#1332) @ytsarev
+  - Add support for multiple Istio ingress gateways (#1328) @ashleyschuett
+  - Enable image publishing to gcr.io via cloudbuild (#1326) @njuettner
+  - Corrected a typo in the Readme (#1323) @drewhemm
+  - Rework tutorial for Azure Private DNS (#1319) @saidst
+  - Correct typos and superflous spaces in the provider code (#1315) @stensonb
+  - Add missing bracket in CLI help output (#1308) @ekeih
+  - Add missing service account to deployment spec in the docs (#1305) @linki
+  - Bump the version of golangci-lint (#1296) @njuettner
+  - Fix broken link of ingress-gce and ingress-nginx (#1290) @sivanzcw
+  - Use apps/v1 for the deployment to be compatible with Kubernetes 1.16 (#1279) @scholzj
+  - Normalize function return and comments on exported type (#1277) @sivanzcw
+  - Use non-deprecated initializer with go context (#1271) @linki
+  - Fix several golint errors (#1270) @bysph
+  - Add Azure Private DNS Provider (#1269) @saidst
+  - Fix tutorial for kubernetes 1.16+ (#1268) @yujunz
+  - Add me-south region to list of canonical hosted zones (#1266) @poweroftrue
+  - Add gov region to list of canonical hosted zones (#1260) @helgi
+  - Update broken links to RDNS (#1259) @Slach
+  - Designate: add snippet for RBAC environment (#1254) @bavarianbidi
+  - Fix log-level parameter in tutorials (#1253) @bavarianbidi
+  - Improve RFC2136 documentation (#1251) @alex-orange
+  - Google Provider: Add support for batching updates (#1248) @vdesjardins
+  - Azure: add support for specifying user assigned identity's clientID to authenticate (#1247) @norshtein
+  - Automatically add provider labels on pull requests via Github actions (#1242) @njuettner
+  - Improve documentation for nginx ingress controller on AWS (#1234) @PiotrJander
+  - Use apps/v1 instead of extensions/v1beta1 in Deployment examples (#1225) @reegnz
+  - Add documentation to make the use of namespaces clearer (#1223) @dgrizzanti
+  - Add support for using Nodes as Source (#1218) @skoef
+  - Add missing RBAC permissions for the ServiceAccount in the docs (#1206) @dooman87
+  - Upgrade client-go + azure sdk (#1195) @timja
+  - RFC2136: Add support for batching updates (#1164) @h3ndrk
+  - Fix confusing arrow direction in the Azure tutorial (#1163) @adipascu
+  - Route53: Add RBAC manifest and update wording around IAM policy (#1149) @dkeightley
+  - Route53: Add support for all AWS Route53 routing policies; add additional Setldentifier abstraction layer (#1008) @devkid
+
 ## v0.5.17 - 2019-09-17
 
   - Exoscale: add context support (#1193) @greut
@@ -42,7 +222,7 @@
 ## v0.5.15 - 2019-07-03
 
   - RFC2136: Fix when merging multiple targets (#1082) @hachh
-  - New provider VinylDNS (#1080) @dgrizzanti 
+  - New provider VinylDNS (#1080) @dgrizzanti
   - Core: Fix for DomainFilter exclusions (#1059) @cmattoon
   - Core: Update aws-go-sdk to be compatible with kube-aws-iam-controller (#1054) @mikkeloscar
   - RFC2136: Log RR adds/deletes as Info (#1041) @gclawes
@@ -58,17 +238,17 @@
 
 ## v0.5.14 - 2019-05-14
 
-  - Docs: Update aws.md (#1009) @pawelprazak 
+  - Docs: Update aws.md (#1009) @pawelprazak
   - New provider TransIP (#1007) @skoef
-  - Docs: Add docker image faq (#1006) @Raffo 
+  - Docs: Add docker image faq (#1006) @Raffo
   - DNSimple: Support apex records (#1004) @jbowes
   - NS1: Add --ns1-endpoint and --ns1-ignoressl flags (#1002) @mburtless
-  - AWS: Cache the endpoints on the controller loop (#1001) @fraenkel 
+  - AWS: Cache the endpoints on the controller loop (#1001) @fraenkel
   - Core: Supress Kubernetes logs (#991) @njuettner
   - Core: distroless/static image (#989) @jharshman
-  - Core: Headless service missing DNS entry (#984) @yverbin 
-  - New provider NS1 (#963) @mburtless 
-  - Core: Add Cloud Foundry routes as a source (#955) @dgrizzanti 
+  - Core: Headless service missing DNS entry (#984) @yverbin
+  - New provider NS1 (#963) @mburtless
+  - Core: Add Cloud Foundry routes as a source (#955) @dgrizzanti
 
 ## v0.5.13 - 2019-04-18
 
@@ -188,8 +368,8 @@
   - Allow AWS batching to fully sync on each run (#699) @bartelsielski
 
 ## v0.5.6 - 2018-09-07
-  
-  - Alibaba Cloud (#696) @xianlubird  
+
+  - Alibaba Cloud (#696) @xianlubird
   - Add Source implementation for Istio Gateway (#694) @jonasrmichel
   - CRD source based on getting endpoints from CRD (#657) @shashidharatd
   - Add filter by service type feature (#653) @Devatoria
@@ -226,7 +406,7 @@
   - Add aws max change count flag (#596) @peterbale
   - AWS provider: Properly check suitable domains (#594) @elordahl
   - Annotation with upper-case hostnames block further updates (#579) @njuettner
-  
+
 ## v0.5.3 - 2018-06-15
 
   - Print a message if no hosted zones match (aws provider) (#592) @svend
